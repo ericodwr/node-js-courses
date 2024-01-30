@@ -8,9 +8,7 @@ let _db;
 
 const mongoConnect = (cb) => {
   mongoClient
-    .connect(
-      'mongodb+srv://ocire:ocire@cluster-node.iyhgh8d.mongodb.net/shop?retryWrites=true&w=majority',
-    )
+    .connect('mongodb url')
     .then((client) => {
       console.log('connected');
       _db = client.db();
