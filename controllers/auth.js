@@ -2,6 +2,7 @@ const bycrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const sendgridTransport = require('nodemailer-sendgrid-transport');
 const crypto = require('crypto');
+const { validationResult } = require('express-validator');
 
 const User = require('../models/user');
 
@@ -49,7 +50,11 @@ exports.postLogin = (req, res, next) => {
           res.redirect('/login');
         });
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
 
 exports.postLogout = (req, res, next) => {
@@ -63,39 +68,49 @@ exports.getSignUp = (req, res, next) => {
   res.render('auth/signup', {
     path: '/signup',
     pageTitle: 'Sign Up',
+    errorMessage: '',
+    oldData: { email: '', name: '', password: '', confirmPassword: '' },
   });
 };
 exports.postSignUp = (req, res, next) => {
   const { email, name, password, confirmPassword } = req.body;
 
-  User.findOne({ email })
-    .then((userDoc) => {
-      if (userDoc) return res.redirect('/signup');
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(422).render('auth/signup', {
+      path: '/signup',
+      pageTitle: 'Sign Up',
+      errorMessage: errors.array()[0].msg,
+      oldData: { email, name, password, confirmPassword },
+    });
+  }
 
-      return bycrypt
-        .hash(password, 12)
-        .then((hashedPassword) => {
-          const user = new User({
-            name,
-            email,
-            password: hashedPassword,
-            cart: { items: [] },
-          });
-          return user.save();
-        })
-        .then((result) => {
-          res.redirect('/login');
-          return transporter
-            .sendMail({
-              to: email,
-              from: 'etrashdr@gmail.com',
-              subject: 'Signup Succeeded!',
-              html: '<h1>You successfully signup</h1>',
-            })
-            .catch((err) => console.log(err));
-        });
+  bycrypt
+    .hash(password, 12)
+    .then((hashedPassword) => {
+      const user = new User({
+        name,
+        email,
+        password: hashedPassword,
+        cart: { items: [] },
+      });
+      return user.save();
     })
-    .catch((err) => console.log(err));
+    .then((result) => {
+      res.redirect('/login');
+      return transporter
+        .sendMail({
+          to: email,
+          from: 'etrashdr@gmail.com',
+          subject: 'Signup Succeeded!',
+          html: '<h1>You successfully signup</h1>',
+        })
+        .catch((err) => {
+          const error = new Error(err);
+          error.httpStatusCode = 500;
+          return next(error);
+        });
+    });
 };
 
 exports.getReset = (req, res, next) => {
@@ -138,7 +153,11 @@ exports.postReset = (req, res, next) => {
           `,
         });
       })
-      .catch((err) => console.log(err));
+      .catch((err) => {
+        const error = new Error(err);
+        error.httpStatusCode = 500;
+        return next(error);
+      });
   });
 };
 
@@ -160,8 +179,9 @@ exports.getNewPassword = (req, res, next) => {
       });
     })
     .catch((err) => {
-      res.redirect('/');
-      console.log(err);
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
     });
 };
 
@@ -192,5 +212,9 @@ exports.postNewPassword = (req, res, next) => {
     .then((result) => {
       res.redirect('/');
     })
-    .catch((err) => console.log(err));
+    .catch((err) => {
+      const error = new Error(err);
+      error.httpStatusCode = 500;
+      return next(error);
+    });
 };
